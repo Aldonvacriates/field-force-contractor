@@ -6,7 +6,7 @@
 
 A mobile app and Flask API for oil-services field contractors: work assigned tickets, prove you are on site before starting, run safety and vehicle checks, capture job photos, log drive time and get AI-drafted inspection reports, with offline support for the parts of the job that happen without signal.
 
-Team capstone from the Coding Temple Tech Residency (March to May 2026), built by an eight-person team. I built the AI features, the app's offline data layer and the photo upload pipeline; the rest of my work is listed under [My contributions](#my-contributions). This repository is my public fork of the team's code, forked from [TroyWenzel/TR42-Contractor](https://github.com/TroyWenzel/TR42-Contractor). Pull request numbers in the commit history refer to the team's private residency repository, not this fork.
+Team project from the Coding Temple Tech Residency (March to May 2026), built by an eight-person team. I built the AI features, the app's offline data layer and the photo upload pipeline; the rest of my work is listed under [My contributions](#my-contributions). This repository is my public fork of the team's code, forked from [TroyWenzel/TR42-Contractor](https://github.com/TroyWenzel/TR42-Contractor). Pull request numbers in the commit history refer to the team's private residency repository, not this fork.
 
 This is a demo-stage project: there is no app-store release and no public deployment linked here. See [Status and known limitations](#status-and-known-limitations).
 
@@ -40,7 +40,7 @@ I was on the team as a full-stack developer with a backend focus. App paths belo
 - **Auth and tests.** In the app, the auth session and secure token storage (`contexts/AuthContext.tsx`, `utils/secureStorage.ts`). On the API, moving `SECRET_KEY` into the environment, adding CORS and consistent auth errors, and the auth tests with the first shared fixtures (`backend/tests/test_auth.py`, `backend/tests/conftest.py`), which Nicole later extended.
 - **Deployment and database safety.** The gunicorn `Procfile`; `DATABASE_URL` handling and photo-upload limits in `backend/config.py`, a file Nicole created; the EAS `preview` profile that builds an APK; cold-start handling in `utils/api.ts` (a 65-second request timeout and a wake-up ping); and the shared-database guardrails described under [How it works](#how-it-works).
 
-Over the residency I made 173 of the 448 commits in this repository's history (47 of them merges) and merged 22 pull requests into the team's main branch, more than anyone else; 14 of those were teammates' pull requests.
+Over the residency I made 173 of the 448 commits in this repository's history (47 of them merges). Of the 63 pull requests merged on the team's private residency repository, I authored 20 and merged 29 (19 of them teammates'), more than anyone else on the team in both.
 
 ## Tech stack
 
