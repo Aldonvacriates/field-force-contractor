@@ -6,7 +6,7 @@
 
 A mobile app and Flask API for oil-services field contractors: work assigned tickets, prove you are on site before starting, run safety and vehicle checks, capture job photos, log drive time and get AI-drafted inspection reports, with offline support for the parts of the job that happen without signal.
 
-Team capstone from the Coding Temple Tech Residency (March to May 2026), built by an eight-person team. This repository is my public fork of the team's code, forked from [TroyWenzel/TR42-Contractor](https://github.com/TroyWenzel/TR42-Contractor). Pull request numbers in the commit history refer to the team's repository, not this fork. My own work is listed under [My contributions](#my-contributions).
+Team capstone from the Coding Temple Tech Residency (March to May 2026), built by an eight-person team. I built the AI features, the app's offline data layer and the photo upload pipeline; the rest of my work is listed under [My contributions](#my-contributions). This repository is my public fork of the team's code, forked from [TroyWenzel/TR42-Contractor](https://github.com/TroyWenzel/TR42-Contractor). Pull request numbers in the commit history refer to the team's private residency repository, not this fork.
 
 This is a demo-stage project: there is no app-store release and no public deployment linked here. See [Status and known limitations](#status-and-known-limitations).
 
@@ -16,7 +16,7 @@ This is a demo-stage project: there is no app-store release and no public deploy
 - **On-site checks before work starts.** Start Task requires Face ID or fingerprint (`expo-local-authentication`) or a PIN, a GPS check that the contractor is within 100 feet of the site, and a six-item PPE checklist. The API will not move a ticket to `IN_PROGRESS` without a start time, start coordinates and the PPE attestation.
 - **Completion records.** Complete Task captures a signature plus the end time and location, then sends the ticket for supervisor approval. The API flags simple anomalies, such as an end time earlier than the start time.
 - **Truck pre-trip inspection.** A checklist built from inspection templates served by the API (the demo seed has 6 sections and 33 items). Submissions are queued on the device when offline.
-- **Drive-time tracker.** Driving, on-duty, off-duty and sleeper-berth status changes, with a dashboard bar that turns yellow one hour before the 11-hour daily driving limit and red at 30 minutes.
+- **Drive-time tracker.** Driving, on-duty, off-duty and sleeper-berth status changes, a running 8-day driving total, and a dashboard bar that turns yellow one hour before the 11-hour daily driving limit and red at 30 minutes.
 - **Job-site photos.** Camera or library photos attached to a ticket, validated and stripped of EXIF metadata on the server, and queued on the device when offline.
 - **AI assistance:**
   - turn field notes into a structured inspection report, streamed to the screen as it is generated, then refine it with feedback;
@@ -29,15 +29,18 @@ This is a demo-stage project: there is no app-store release and no public deploy
 
 ## My contributions
 
-I was on the team as a full-stack developer with a backend focus. Over the residency I made 173 of the 448 commits (47 of them merges), the most of any contributor, and merged 22 pull requests into the team's main branch, also the most of anyone. Jonathan Hubbard made the most non-merge commits. App paths below are relative to `frontend/field-force-contractor/`.
+I was on the team as a full-stack developer with a backend focus. App paths below are relative to `frontend/field-force-contractor/`.
 
-- **AI layer, backend and app.** Provider abstraction with retry and fallback, structured inspection reports, SSE streaming, refine, photo analysis with ticket flagging, chat, and saved reports and chats: `backend/app/blueprints/ai/` (`providers.py`, `routes.py`, `errors.py`, `schemas.py`) and `backend/smoke_test_ai.py`. In the app: `utils/aiClient.ts`, `screens/ChatAssistantScreen.tsx`, `screens/InspectionAssistScreen.tsx`, `screens/PhotoReviewScreen.tsx`, `screens/IncidentReportScreen.tsx`, `screens/SavedReportsScreen.tsx`, `utils/pdfExport.ts` and `components/MarkdownView.tsx`.
-- **Offline data layer.** `utils/db.ts`, `utils/cache.ts`, `utils/outbox.ts`, `utils/photoOutbox.ts`, the offline-aware helpers in `utils/api.ts`, `contexts/NetworkContext.tsx` and `components/OfflineBanner.tsx`.
-- **Photo pipeline.** `backend/app/blueprints/photos/routes.py`, `backend/app/util/photo_validation.py` and `backend/smoke_test_photos.py`.
-- **Ticket workflow.** I extended `screens/TicketDetailScreen.tsx`, which charlie7estrada built (verification modal, GPS capture, camera, proximity check). My additions: loading real ticket data from the API, real Face ID and fingerprint checks, the 100-foot threshold, photo upload with per-photo analysis, the PPE gate (`components/PPEChecklistModal.tsx`, `constants/ppe.ts` and the server-side check in `backend/app/blueprints/tickets/routes.py`), signature capture (`components/SignatureModal.tsx`) and showcase mode (`constants/showcase.ts`, `DEMO_REVERT.md`). I also built `screens/MapScreen.tsx` and connected the Tickets, License, Task History and Profile screens to the API.
-- **Drive time and inspections.** `backend/app/blueprints/drive_time/routes.py`, `screens/DriveTimeTrackerScreen.tsx`, `components/DriveTimeStatusBar.tsx`, `backend/app/blueprints/inspections/routes.py`, `backend/seed_inspections.py` and `screens/InspectionScreen.tsx`.
-- **Schema sync.** I rewrote `backend/app/models.py` as SQLAlchemy 2.0 typed models that mirror the team's shared Postgres schema, building on ncespedes1's original models and JamesBustamante44's ERD, and reworked `backend/app/blueprints/analytics/routes.py` (first built by JamesBustamante44) to match it.
-- **Auth, deployment and tooling.** Login wiring (`contexts/AuthContext.tsx`, `utils/secureStorage.ts`); moving `SECRET_KEY` into the environment, adding CORS and consistent auth errors, with the first pytest fixtures and auth tests (`backend/tests/conftest.py`, `backend/tests/test_auth.py`, later extended by ncespedes1); the gunicorn `Procfile`, `DATABASE_URL` handling and photo-upload limits in `backend/config.py` (a file ncespedes1 created), the database guardrails in `backend/flask_app.py`, `backend/seed_dev.py` and `backend/DATABASE_SAFETY.md`; the EAS `preview` profile that builds an APK; and cold-start handling (a 65-second request timeout and a wake-up ping) in `utils/api.ts`.
+- **AI features, backend and app.** A provider layer over Gemini, Anthropic and Ollama Cloud with retry and fallback; structured inspection reports, streamed over SSE, with a refine step; photo safety analysis that flags the ticket on a high-severity result; a chat assistant; and saved reports and chats with PDF export. The API side is `backend/app/blueprints/ai/` plus a smoke test; the app side is `utils/aiClient.ts` and five screens (chat assistant, inspection assist, photo review, incident report, saved reports).
+- **Offline data layer and API client.** The app's HTTP client (`utils/api.ts`), a SQLite read cache, a request outbox that replays in order on reconnect, a separate photo upload queue and the offline banner. Key files: `utils/outbox.ts`, `utils/photoOutbox.ts`, `contexts/NetworkContext.tsx`.
+- **Photo pipeline.** Upload, list and fetch routes with idempotent retries, Pillow validation and EXIF stripping, open only to the ticket's assigned contractor: `backend/app/blueprints/photos/`, `backend/app/util/photo_validation.py` and `backend/smoke_test_photos.py`.
+- **Ticket workflow.** I extended `screens/TicketDetailScreen.tsx`, which Charlie Estrada built (verification modal, GPS capture, camera, proximity check). My additions: loading real ticket data from the API, real Face ID and fingerprint checks, the 100-foot threshold, photo upload with per-photo analysis, the PPE gate (a checklist in the app, enforced by the ticket API), signature capture and showcase mode. I also built the map screen and connected the Tickets, License, Task History and Profile screens to the API.
+- **Drive time and inspections.** The drive-time API, tracker screen and 11-hour warning bar, and the truck pre-trip inspection API, seed data and checklist screen: `backend/app/blueprints/drive_time/` and `backend/app/blueprints/inspections/`.
+- **Schema sync.** I rewrote `backend/app/models.py` as SQLAlchemy 2.0 typed models that mirror the team's shared Postgres schema, building on Nicole Cespedes's original models and James Bustamante's ERD, and reworked the analytics routes, which James first built, to match it.
+- **Auth and tests.** In the app, the auth session and secure token storage (`contexts/AuthContext.tsx`, `utils/secureStorage.ts`). On the API, moving `SECRET_KEY` into the environment, adding CORS and consistent auth errors, and the auth tests with the first shared fixtures (`backend/tests/test_auth.py`, `backend/tests/conftest.py`), which Nicole later extended.
+- **Deployment and database safety.** The gunicorn `Procfile`; `DATABASE_URL` handling and photo-upload limits in `backend/config.py`, a file Nicole created; the EAS `preview` profile that builds an APK; cold-start handling in `utils/api.ts` (a 65-second request timeout and a wake-up ping); and the shared-database guardrails described under [How it works](#how-it-works).
+
+Over the residency I made 173 of the 448 commits in this history (47 of them merges) and merged 22 pull requests into the team's main branch, more than anyone else; 14 of those were teammates' pull requests.
 
 ## Tech stack
 
@@ -73,6 +76,8 @@ flowchart LR
 
 ## How it works
 
+I built each of the four pieces described here.
+
 **Offline writes go through an outbox.** `utils/api.ts` has offline-aware helpers: `authCachedGet` returns the last SQLite copy of a GET response when the network call fails, and `authPostQueued`, `authPutQueued` and `authPatchQueued` write the request to an `outbox` table instead of failing. When `contexts/NetworkContext.tsx` sees the device come back online, `utils/outbox.ts` replays the queue in creation order. It stops at the first network error or 5xx response so the order of events such as drive-time status changes is kept, and drops a request after five 4xx responses so one bad record cannot block the queue. Photos have their own queue (`utils/photoOutbox.ts`) because they are multipart uploads: the image is copied out of the OS cache into the app's document directory so it survives restarts, and each upload carries a client-generated `submission_uuid`.
 
 **Photo uploads are idempotent and sanitized.** `backend/app/blueprints/photos/routes.py` looks up the `submission_uuid` before inserting, so a retried upload returns the existing row instead of creating a duplicate, and a unique-constraint race returns the row that won. `backend/app/util/photo_validation.py` parses every file with Pillow (JPEG and PNG only), applies Pillow's decompression-bomb guard (`MAX_IMAGE_PIXELS` set to 50 megapixels), reads GPS from EXIF as a fallback for the client's coordinates, then re-encodes the image so the stored copy carries no EXIF metadata. Requests are capped at 10 MB and tickets at 20 photos (`backend/config.py`). Only the contractor assigned to a ticket can add or read its photos. Other contractors get a 404, so ticket IDs do not leak, and non-contractor accounts get a 403.
@@ -98,7 +103,7 @@ cp .env.example .env        # then set EXPO_PUBLIC_SHOWCASE_MODE=true
 npx expo start --clear      # Expo inlines EXPO_PUBLIC_* values when it bundles
 ```
 
-Never enable it in a build that handles real data. `DEMO_REVERT.md` lists the other demo-only fallbacks.
+Open the app from the native build described under [Getting started](#getting-started), not Expo Go. Never enable showcase mode in a build that handles real data. `DEMO_REVERT.md` lists the other demo-only fallbacks.
 
 ## Getting started
 
@@ -115,7 +120,7 @@ cd backend
 python -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-cp .env.example .env               # set SECRET_KEY; add a Gemini, Anthropic or Ollama key for the AI routes
+cp .env.example .env               # set SECRET_KEY; for the AI routes, replace the GEMINI_API_KEY placeholder
 python -c "import flask_app"       # creates the local SQLite tables
 python seed_dev.py                 # optional demo data; the demo logins are in the script's docstring
 python flask_app.py                # serves the API on port 5000
@@ -126,7 +131,7 @@ Environment variables (`backend/.env.example`):
 | Variable | Needed for | Notes |
 | --- | --- | --- |
 | `SECRET_KEY` | Everything | Signs JWTs. The API will not start without it (`app/util/auth.py`). |
-| `AI_PROVIDER` | AI routes | `gemini` (default), `anthropic` or `ollama`. |
+| `AI_PROVIDER` | AI routes | `gemini` (default), `anthropic` or `ollama`. The active provider needs its own key; keys for the others are used only for fallback. |
 | `GEMINI_API_KEY` | AI routes | Key for the default provider (`GOOGLE_API_KEY` also works). `GEMINI_MODEL` overrides the model. |
 | `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` | Optional | Anthropic as the active provider or a fallback. |
 | `OLLAMA_API_KEY`, `OLLAMA_MODEL`, `OLLAMA_VISION_MODEL`, `OLLAMA_BASE_URL` | Optional | Ollama Cloud as the active provider or a fallback. |
@@ -142,8 +147,6 @@ npm install
 cp .env.example .env               # optional: holds EXPO_PUBLIC_SHOWCASE_MODE (default false)
 npm run android                    # or npm run ios: builds and installs the native app, then starts Metro
 ```
-
-After the first native build, `npx expo start` is enough to serve JavaScript changes to the installed app.
 
 The API base URL is set in `utils/api.ts`, not in an env var. As committed, `USE_DEPLOYED = true` points the app at the team's hosted backend from the residency, which this fork does not maintain. To use your own backend, set `USE_DEPLOYED = false` and set `LAN_IP` to your computer's LAN IP (web builds use `localhost:5000`). The comment block at the top of that file covers same-Wi-Fi phone testing and firewall ports; the `seed.py` it mentions is now `seed_dev.py`.
 
@@ -185,13 +188,11 @@ DEMO_REVERT.md             demo-only behavior to revert before a production buil
 
 ## Status and known limitations
 
-- No app-store release or public demo is linked here.
 - Accept and Decline on a ticket do not call the API yet (TODOs in `screens/TicketDetailScreen.tsx`).
 - Offline support covers inspection submissions, drive-time changes, photo uploads and a few cached reads (inspection checklist, drive-time session, saved reports). Ticket status changes (start, complete) are not queued when offline.
 - The API has email-based password-reset endpoints, but the app's reset screen is still a mock that does not call them.
 - The offline PIN falls back to a built-in demo PIN until a real one is provisioned (`utils/secureStorage.ts`). Some screens fall back to demo contacts, a demo point of contact or a default map pin when data is missing (see `DEMO_REVERT.md`).
-- Drive time is tracked against the 11-hour daily driving limit only, and the app warns rather than blocks. The 14-hour and 70-hour constants in `backend/app/blueprints/drive_time/routes.py` are defined but not used.
-- The streaming inspection endpoint has no provider fallback.
+- Drive-time warnings cover only the 11-hour daily driving limit, and the app warns rather than blocks. The tracker shows the 8-day driving total, but nothing checks it against the 70-hour limit, and the 14-hour on-duty window is not checked; both constants in `backend/app/blueprints/drive_time/routes.py` are defined but unused.
 
 ## What I'd improve next
 
@@ -206,13 +207,13 @@ DEMO_REVERT.md             demo-only behavior to revert before a production buil
 | --- | --- | --- | --- |
 | [@Aldonvacriates](https://github.com/Aldonvacriates) | Aldo Herrera | Full stack, backend focus | See [My contributions](#my-contributions) |
 | [@Jonathanch2022](https://github.com/Jonathanch2022) | Jonathan Hubbard | Full stack, frontend focus | Expo project setup and TypeScript conversion, app shell (`MainFrame`, menus, header, search bar, shared styles), splash and auth-check routing, messaging UI and contacts |
-| [@ncespedes1](https://github.com/ncespedes1) | Nicole Cespedes | Backend | Original backend and data models, auth routes (login, password update and reset), contractor and ticket routes with anomaly checks, JWT helper, most of the pytest suite |
+| [@ncespedes1](https://github.com/ncespedes1) | Nicole Cespedes | Backend | Original backend and data models, auth routes (login, password update and reset), JWT helper, contractor and ticket routes with anomaly checks and their tests |
 | [@TroyWenzel](https://github.com/TroyWenzel) | Troy Wenzel | Frontend | Login, biometric, offline-PIN and password-reset screens; profile, task history and dashboard UI; theme, header and bottom navigation |
 | [@charlie7estrada](https://github.com/charlie7estrada) | Charlie Estrada | Frontend | Tickets list and ticket detail screen (verification flow, GPS capture, proximity check, camera and voice-to-text) |
 | [@JamesBustamante44](https://github.com/JamesBustamante44) | James Bustamante | Backend | ERD and database schema (`docs/`), analytics SQL (`analytics/`) and the first analytics API |
 | [@EdwardCochran](https://github.com/EdwardCochran) | Edward Cochran | Backend | Work-order endpoint, offline-PIN endpoint, JWT documentation |
 
-Johnna Auman (Cybersecurity) is also on the team roster; her work does not appear in this repository's commit history. [@E-Y-J](https://github.com/E-Y-J) (Ellijah Jimenez) created the residency repository template (README and sprint-story issue template) and merged one of the team's pull requests.
+Johnna Auman (Cybersecurity) was also on the team roster. [@E-Y-J](https://github.com/E-Y-J) (Ellijah Jimenez) created the residency repository template (README and sprint-story issue template) and merged one of the team's pull requests.
 
 This repository has no open-source license file; see the notice below.
 
