@@ -40,7 +40,7 @@ I was on the team as a full-stack developer with a backend focus. App paths belo
 - **Auth and tests.** In the app, the auth session and secure token storage (`contexts/AuthContext.tsx`, `utils/secureStorage.ts`). On the API, moving `SECRET_KEY` into the environment, adding CORS and consistent auth errors, and the auth tests with the first shared fixtures (`backend/tests/test_auth.py`, `backend/tests/conftest.py`), which Nicole later extended.
 - **Deployment and database safety.** The gunicorn `Procfile`; `DATABASE_URL` handling and photo-upload limits in `backend/config.py`, a file Nicole created; the EAS `preview` profile that builds an APK; cold-start handling in `utils/api.ts` (a 65-second request timeout and a wake-up ping); and the shared-database guardrails described under [How it works](#how-it-works).
 
-Over the residency I made 173 of the 448 commits in this history (47 of them merges) and merged 22 pull requests into the team's main branch, more than anyone else; 14 of those were teammates' pull requests.
+Over the residency I made 173 of the 448 commits in this repository's history (47 of them merges) and merged 22 pull requests into the team's main branch, more than anyone else; 14 of those were teammates' pull requests.
 
 ## Tech stack
 
