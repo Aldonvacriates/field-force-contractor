@@ -22,7 +22,7 @@ This is a demo-stage project: there is no app-store release and no public deploy
   - turn field notes into a structured inspection report, streamed to the screen as it is generated, then refine it with feedback;
   - analyze a job-site photo for safety concerns; a HIGH-severity result flags the ticket for review;
   - a chat assistant prompted for oil-services field work, safety and OSHA questions;
-  - an incident-report flow that pairs photo analysis with suggested OSHA citations;
+  - an incident-report flow that pairs the AI photo analysis with OSHA citation suggestions from a built-in keyword list;
   - saved reports and chats, exportable as branded PDFs (`expo-print`, `expo-sharing`).
 - **Account and profile.** JWT login (tokens last 14 hours), offline login with a PIN, profile, license details with an expiration banner, task history and dashboard stats from the analytics endpoints.
 - **Contacts.** Contacts come from the API. The one-to-one messaging screen is a UI prototype backed by in-memory demo messages.
@@ -34,10 +34,10 @@ I was on the team as a full-stack developer with a backend focus. Over the resid
 - **AI layer, backend and app.** Provider abstraction with retry and fallback, structured inspection reports, SSE streaming, refine, photo analysis with ticket flagging, chat, and saved reports and chats: `backend/app/blueprints/ai/` (`providers.py`, `routes.py`, `errors.py`, `schemas.py`) and `backend/smoke_test_ai.py`. In the app: `utils/aiClient.ts`, `screens/ChatAssistantScreen.tsx`, `screens/InspectionAssistScreen.tsx`, `screens/PhotoReviewScreen.tsx`, `screens/IncidentReportScreen.tsx`, `screens/SavedReportsScreen.tsx`, `utils/pdfExport.ts` and `components/MarkdownView.tsx`.
 - **Offline data layer.** `utils/db.ts`, `utils/cache.ts`, `utils/outbox.ts`, `utils/photoOutbox.ts`, the offline-aware helpers in `utils/api.ts`, `contexts/NetworkContext.tsx` and `components/OfflineBanner.tsx`.
 - **Photo pipeline.** `backend/app/blueprints/photos/routes.py`, `backend/app/util/photo_validation.py` and `backend/smoke_test_photos.py`.
-- **Ticket workflow.** I extended `screens/TicketDetailScreen.tsx`, which charlie7estrada built (verification modal, GPS capture, camera, proximity check). My additions: wiring it to the API, real Face ID and fingerprint checks, the 100-foot threshold, photo upload with per-photo analysis, the PPE gate (`components/PPEChecklistModal.tsx`, `constants/ppe.ts` and the server-side check in `backend/app/blueprints/tickets/routes.py`), signature capture (`components/SignatureModal.tsx`) and showcase mode (`constants/showcase.ts`, `DEMO_REVERT.md`). I also built `screens/MapScreen.tsx` and connected the Tickets, License, Task History and Profile screens to the API.
+- **Ticket workflow.** I extended `screens/TicketDetailScreen.tsx`, which charlie7estrada built (verification modal, GPS capture, camera, proximity check). My additions: loading real ticket data from the API, real Face ID and fingerprint checks, the 100-foot threshold, photo upload with per-photo analysis, the PPE gate (`components/PPEChecklistModal.tsx`, `constants/ppe.ts` and the server-side check in `backend/app/blueprints/tickets/routes.py`), signature capture (`components/SignatureModal.tsx`) and showcase mode (`constants/showcase.ts`, `DEMO_REVERT.md`). I also built `screens/MapScreen.tsx` and connected the Tickets, License, Task History and Profile screens to the API.
 - **Drive time and inspections.** `backend/app/blueprints/drive_time/routes.py`, `screens/DriveTimeTrackerScreen.tsx`, `components/DriveTimeStatusBar.tsx`, `backend/app/blueprints/inspections/routes.py`, `backend/seed_inspections.py` and `screens/InspectionScreen.tsx`.
 - **Schema sync.** I rewrote `backend/app/models.py` as SQLAlchemy 2.0 typed models that mirror the team's shared Postgres schema, building on ncespedes1's original models and JamesBustamante44's ERD, and reworked `backend/app/blueprints/analytics/routes.py` (first built by JamesBustamante44) to match it.
-- **Auth, deployment and tooling.** Login wiring (`contexts/AuthContext.tsx`, `utils/secureStorage.ts`); moving `SECRET_KEY` into the environment, adding CORS and consistent auth errors, with the first pytest fixtures and auth tests (`backend/tests/conftest.py`, `backend/tests/test_auth.py`, later extended by ncespedes1); the gunicorn `Procfile`, `backend/config.py`, the database guardrails in `backend/flask_app.py`, `backend/seed_dev.py` and `backend/DATABASE_SAFETY.md`; the EAS `preview` profile that builds an APK; and cold-start handling (a 65-second request timeout and a wake-up ping) in `utils/api.ts`.
+- **Auth, deployment and tooling.** Login wiring (`contexts/AuthContext.tsx`, `utils/secureStorage.ts`); moving `SECRET_KEY` into the environment, adding CORS and consistent auth errors, with the first pytest fixtures and auth tests (`backend/tests/conftest.py`, `backend/tests/test_auth.py`, later extended by ncespedes1); the gunicorn `Procfile`, the production config and photo-upload limits in `backend/config.py` (a file ncespedes1 created), the database guardrails in `backend/flask_app.py`, `backend/seed_dev.py` and `backend/DATABASE_SAFETY.md`; the EAS `preview` profile that builds an APK; and cold-start handling (a 65-second request timeout and a wake-up ping) in `utils/api.ts`.
 
 ## Tech stack
 
@@ -75,7 +75,7 @@ flowchart LR
 
 **Offline writes go through an outbox.** `utils/api.ts` has offline-aware helpers: `authCachedGet` returns the last SQLite copy of a GET response when the network call fails, and `authPostQueued`, `authPutQueued` and `authPatchQueued` write the request to an `outbox` table instead of failing. When `contexts/NetworkContext.tsx` sees the device come back online, `utils/outbox.ts` replays the queue in creation order. It stops at the first network error or 5xx response so the order of events such as drive-time status changes is kept, and drops a request after five 4xx responses so one bad record cannot block the queue. Photos have their own queue (`utils/photoOutbox.ts`) because they are multipart uploads: the image is copied out of the OS cache into the app's document directory so it survives restarts, and each upload carries a client-generated `submission_uuid`.
 
-**Photo uploads are idempotent and sanitized.** `backend/app/blueprints/photos/routes.py` looks up the `submission_uuid` before inserting, so a retried upload returns the existing row instead of creating a duplicate, and a unique-constraint race returns the row that won. `backend/app/util/photo_validation.py` parses every file with Pillow (JPEG and PNG only), applies Pillow's decompression-bomb guard (`MAX_IMAGE_PIXELS` set to 50 megapixels), reads GPS from EXIF as a fallback for the client's coordinates, then re-encodes the image so the stored copy carries no EXIF metadata. Requests are capped at 10 MB and tickets at 20 photos (`backend/config.py`). Only the contractor assigned to a ticket can add or read its photos; anyone else gets a 404, so ticket IDs do not leak.
+**Photo uploads are idempotent and sanitized.** `backend/app/blueprints/photos/routes.py` looks up the `submission_uuid` before inserting, so a retried upload returns the existing row instead of creating a duplicate, and a unique-constraint race returns the row that won. `backend/app/util/photo_validation.py` parses every file with Pillow (JPEG and PNG only), applies Pillow's decompression-bomb guard (`MAX_IMAGE_PIXELS` set to 50 megapixels), reads GPS from EXIF as a fallback for the client's coordinates, then re-encodes the image so the stored copy carries no EXIF metadata. Requests are capped at 10 MB and tickets at 20 photos (`backend/config.py`). Only the contractor assigned to a ticket can add or read its photos. Other contractors get a 404, so ticket IDs do not leak, and non-contractor accounts get a 403.
 
 **One interface for three LLM providers, with fallback.** `backend/app/blueprints/ai/providers.py` defines an `AIProvider` base class (`generate`, `stream`, `generate_with_image`) with Gemini, Anthropic and Ollama Cloud implementations. `AI_PROVIDER` picks the active one and defaults to Gemini. The non-streaming routes call `resilient_call`, which retries once after 1.5 seconds on rate limits (429), server errors (500, 502, 503, 504), timeouts and connection errors, then makes one attempt on the first other provider that has an API key set (checked in the order Ollama, Gemini, Anthropic). Bad-request and auth errors are raised immediately. JSON responses are stripped of code fences, and a truncated photo analysis is salvaged field by field instead of failing. `errors.py` in the same folder turns failures into stable `AI_*` error codes that `utils/aiClient.ts` maps to readable messages. The streaming endpoint (`POST /api/ai/inspection-assist/stream`, Server-Sent Events) uses the active provider only, without the fallback.
 
@@ -106,7 +106,7 @@ Never enable it in a build that handles real data. `DEMO_REVERT.md` lists the ot
 
 - Python 3.10 or newer (pinned packages such as pytest 9 require it) and pip
 - Node.js and npm
-- An Android emulator, iOS simulator or a phone. Some native modules, such as `expo-speech-recognition`, are not part of Expo Go, so a development build (`npm run android` or `npm run ios`) is the most reliable way to run the full app.
+- Android Studio (emulator or USB phone) or, on macOS, Xcode. The app needs a native build rather than Expo Go: `screens/TicketDetailScreen.tsx`, which `App.tsx` imports at startup, imports `expo-speech-recognition` directly, and Expo Go does not include that native module.
 
 ### Backend
 
@@ -140,8 +140,10 @@ Without a key for the active provider, the AI routes return a 503 with code `AI_
 cd frontend/field-force-contractor
 npm install
 cp .env.example .env               # optional: holds EXPO_PUBLIC_SHOWCASE_MODE (default false)
-npx expo start
+npm run android                    # or npm run ios: builds and installs the native app, then starts Metro
 ```
+
+After the first native build, `npx expo start` is enough to serve JavaScript changes to the installed app.
 
 The API base URL is set in `utils/api.ts`, not in an env var. As committed, `USE_DEPLOYED = true` points the app at the team's hosted backend from the residency, which this fork does not maintain. To use your own backend, set `USE_DEPLOYED = false` and set `LAN_IP` to your computer's LAN IP (web builds use `localhost:5000`). The comment block at the top of that file covers same-Wi-Fi phone testing and firewall ports; the `seed.py` it mentions is now `seed_dev.py`.
 
@@ -153,7 +155,7 @@ pytest                             # 20 tests for the auth, contractor and ticke
 ```
 
 - `tests/conftest.py` sets a throwaway `SECRET_KEY` and builds the app with `TestingConfig`, which uses SQLite.
-- Two scripts exercise a running local server end to end: `python smoke_test_ai.py` calls every `/api/ai/*` route (it logs in as the seeded demo user by default), and `python smoke_test_photos.py <username> <password> <ticket_id> <photo_path>` uploads a photo, re-sends it to check idempotency, then lists and fetches it. Both read `SMOKE_TEST_URL` (default `http://localhost:5000`).
+- Two scripts exercise a running local server end to end: `python smoke_test_ai.py` calls the inspection-assist, refine-report, analyze-photo, chat, save-report and reports routes, including their error paths (it logs in as the seeded demo user by default; it does not cover the streaming or saved-chat routes), and `python smoke_test_photos.py <username> <password> <ticket_id> <photo_path>` uploads a photo, re-sends it to check idempotency, then lists and fetches it. Both read `SMOKE_TEST_URL` (default `http://localhost:5000`).
 - App: `npm run lint` runs Expo's ESLint config. There are no frontend unit tests and no CI workflow yet.
 
 ## Project structure
