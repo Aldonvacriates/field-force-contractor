@@ -9,10 +9,11 @@ isolated to a single file so the flip is mechanical, not a code rewrite.
 
 ### 1. `frontend/field-force-contractor/constants/showcase.ts`
 
-`SHOWCASE_MODE` is hardcoded `true` in this PR so the demo runs without real
-biometric hardware or real GPS proximity. Set to `false` (or swap for the
-env-driven form documented in the file's header comment) before any build
-that touches real client data.
+`SHOWCASE_MODE` reads the `EXPO_PUBLIC_SHOWCASE_MODE` env var and is off
+unless that variable is exactly `true`. Turn it on only for a demo (in
+`frontend/field-force-contractor/.env`, or in the `env` block of a demo EAS
+build profile) so the demo runs without real biometric hardware or real GPS
+proximity. Leave it unset for any build that touches real client data.
 
 What flips when `SHOWCASE_MODE === true`:
 
@@ -69,9 +70,9 @@ These ship as-is to production:
 ## Quick verification before merging
 
 ```bash
-# 1. SHOWCASE_MODE off?
-grep -n "export const SHOWCASE_MODE" frontend/field-force-contractor/constants/showcase.ts
-# Expected: export const SHOWCASE_MODE: boolean = false;
+# 1. SHOWCASE_MODE off? (on only when EXPO_PUBLIC_SHOWCASE_MODE=true)
+grep -n "EXPO_PUBLIC_SHOWCASE_MODE" frontend/field-force-contractor/.env frontend/field-force-contractor/eas.json 2>/dev/null
+# Expected: no line that sets it to true.
 
 # 2. No leftover ngrok URLs in the diff?
 git diff main..HEAD -- frontend/field-force-contractor/utils/api.ts | grep -i "ngrok"

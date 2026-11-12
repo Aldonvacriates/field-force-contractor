@@ -8,8 +8,9 @@
 // workflow.
 //
 // IMPORTANT: SHOWCASE_MODE === true disables real security gates. It
-// MUST be off (or set to false here) for any build that ships to real
-// users or carries real client data behind real authentication.
+// MUST be off (EXPO_PUBLIC_SHOWCASE_MODE unset or not 'true') for any
+// build that ships to real users or carries real client data behind
+// real authentication.
 //
 // What flips when SHOWCASE_MODE === true:
 //   1. TicketDetailScreen.handleAcceptTask short-circuits to
@@ -29,18 +30,20 @@
 // stays a one-line change.
 //
 // How to toggle:
-//   This branch (test/all-prs) hardcodes SHOWCASE_MODE = true because
-//   it is the demo/presentation branch and is not for merge. For a
-//   production cutover, swap the line below for the env-driven form:
+//   SHOWCASE_MODE is off by default. It turns on only when the
+//   EXPO_PUBLIC_SHOWCASE_MODE env var is exactly 'true'. For a local
+//   demo, set it in frontend/field-force-contractor/.env (see
+//   .env.example) and restart Expo with `npx expo start --clear`. For a
+//   demo EAS build, set it in that build profile's `env` block only.
 //
-//     export const SHOWCASE_MODE: boolean =
-//       process.env.EXPO_PUBLIC_SHOWCASE_MODE === 'true';
-//
-//   and set EXPO_PUBLIC_SHOWCASE_MODE=true only in the showcase EAS
-//   profile.
+//   Expo inlines EXPO_PUBLIC_* values at bundle time and only for static
+//   dot-notation access, so keep the read below as
+//   process.env.EXPO_PUBLIC_SHOWCASE_MODE (no destructuring, no
+//   computed keys).
 // ============================================
 
-export const SHOWCASE_MODE: boolean = true;
+export const SHOWCASE_MODE: boolean =
+  process.env.EXPO_PUBLIC_SHOWCASE_MODE === 'true';
 
 // Loud dev-time warning so nobody forgets the flag is on. __DEV__ is
 // the React Native global that's true in Metro / Expo Go and false in
@@ -50,6 +53,6 @@ if (__DEV__ && SHOWCASE_MODE) {
   console.warn(
     '[SHOWCASE_MODE] Accept-ticket and start-task verification bypasses are ACTIVE. ' +
     'This build is for client demos. ' +
-    'Set SHOWCASE_MODE = false in constants/showcase.ts for production.'
+    'Unset EXPO_PUBLIC_SHOWCASE_MODE and restart Expo for a production-like run.'
   );
 }
